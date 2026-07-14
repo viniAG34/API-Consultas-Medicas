@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "lacrei-desafio"
+version = "0.1.0"
+description = "API de Gerenciamento de Consultas Médicas — desafio técnico Lacrei Saúde"
+authors = ["Lacrei Saúde"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^5.0"
+djangorestframework = "^3.15"
+psycopg = {extras = ["binary"], version = "^3.1"}
+django-environ = "^0.11"
+gunicorn = "^22.0"
+whitenoise = "^6.7"
+djangorestframework-simplejwt = "^5.3"
+django-cors-headers = "^4.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

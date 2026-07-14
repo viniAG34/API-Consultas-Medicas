@@ -323,6 +323,19 @@ class ConsultaViewSet(viewsets.ModelViewSet):
 
 **Nota sobre a migration retroativa:** como esse refinamento altera o model já definido no SDD-02, é necessário rodar `makemigrations` novamente após esse ajuste — a nova migration é aditiva (índice + constraint), não substitui a migration original do SDD-02.
 
+**Armadilha conhecida do DRF — `UniqueTogetherValidator` automático:** o `ModelSerializer` do DRF
+inspeciona a `UniqueConstraint` do model (`profissional` + `data_hora`) e gera automaticamente
+um `UniqueTogetherValidator`. Esse validador roda **antes** do `validate()` customizado acima —
+ou seja, ele detecta o conflito de horário primeiro e levanta `rest_framework.exceptions.ValidationError`
+diretamente, com uma mensagem genérica do DRF, nunca chegando a instanciar `ErroConflitoHorario`.
+Isso viola RN-15 (erro de conflito de horário deve ser uma exceção de domínio, traduzida
+centralmente pelo `tratar_erro_global`). A correção é `validators = []` no `Meta` do
+`ConsultaSerializer` (já implementado em `apps/consultas/serializers.py`), desativando
+explicitamente esse validador automático — a constraint de banco continua como segunda
+barreira (Guard B.2), redundante mas intencional. Registrado aqui para quem reler este SDD no
+futuro e se perguntar por que `validators = []` aparece no serializer sem uma explicação óbvia
+à primeira vista.
+
 ---
 
 ## Checklist de implementação

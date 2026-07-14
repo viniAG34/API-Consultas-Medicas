@@ -114,19 +114,35 @@ except Exception as e:
 ## 4. Etapa atual
 
 ```
-STATUS:    FASE 2 (SDD-02) CONCLUÍDA — models e migrations validados via docker-compose (2026-07-13)
-ETAPA:     SDD-02 implementado: apps/profissionais e apps/consultas criadas (models.py,
-           admin.py, migrations/0001_initial.py), INSTALLED_APPS atualizado em
-           config/settings/base.py. Migration inicial já inclui UniqueConstraint
-           (profissional + data_hora) e db_index em data_hora (RN-12). CA-01 a CA-11
-           verificados (schema + shell manual: CA-03, CA-04, CA-05, CA-06, CA-07,
-           CA-09, CA-11).
+STATUS:    FASE 4 (SDD-04) CONCLUÍDA — JWT, CORS, rate limiting e logging JSON validados
+           via docker-compose + curl contra o container real (2026-07-13)
+ETAPA:     SDD-04 implementado: djangorestframework-simplejwt e django-cors-headers
+           instalados (dependência de CORS estava ausente desde o SDD-01, corrigida
+           nesta sessão). apps/core/constantes.py estendido com constantes de
+           JWT/throttle. REST_FRAMEWORK (settings/base.py) estendido com
+           DEFAULT_AUTHENTICATION_CLASSES (JWT), DEFAULT_PERMISSION_CLASSES
+           (IsAuthenticated global) e DEFAULT_THROTTLE_CLASSES/RATES, preservando
+           paginação e EXCEPTION_HANDLER do SDD-03. SIMPLE_JWT configurado com tempos
+           de vida via constante. CORS_ALLOWED_ORIGINS via .env, CORS_ALLOW_ALL_ORIGINS
+           sempre False. apps/core/throttling.py (ThrottleLogin), apps/core/logging.py
+           (FormatadorJSON) e apps/core/middleware.py (MiddlewareLogAcesso, último no
+           MIDDLEWARE) criados. apps/core/exception_handler.py (JÁ EXISTENTE) estendido
+           com logging estruturado via logger "lacrei.erros". TokenObtainPairViewPublica
+           e TokenRefreshViewPublica com AllowAny explícito em config/urls.py.
+           VerificarSaude (apps/core/views.py) com AllowAny explícito. LOGGING
+           (dictConfig) reconfigurado com formatter JSON — incluindo override explícito
+           do logger "django" para evitar linha duplicada em texto puro que o
+           DEFAULT_LOGGING do Django injeta quando DEBUG=True (achado durante a
+           verificação real, não previsto no SDD). SDD-03 documentado com nota sobre a
+           armadilha do UniqueTogetherValidator automático do DRF (já corrigida no
+           código, apenas registrada para referência futura). CA-01 a CA-17 verificados
+           via curl + docker logs (ver relatório da sessão).
 SDDs:      Todos escritos e auditados (01 Setup, 02 Modelagem, 03 CRUD+refinamentos,
            04 Segurança, 05 Testes, 06 CI/CD, 07 Deploy AWS, 08 Swagger, 09 README)
-PRÓXIMA:   Fase 3 — SDD-03 (CRUD): serializers, ViewSets, routers para Profissional e
-           Consulta, busca de consultas por ID do profissional, validação combinada
-           email/telefone (RN-08) no serializer, refinamentos (conflito de horário
-           amigável, select_related, filtro por intervalo de data).
+PRÓXIMA:   Fase 5 — SDD-05 (Testes Automatizados): APITestCase cobrindo CRUD de
+           Profissional/Consulta, casos de erro (dados ausentes, tipo inválido, FK
+           inexistente, exclusão protegida), autenticação/rate limiting e health check
+           público — ver estrutura de tests/ já definida na seção 7 deste documento.
 ```
 
 ### Sequência completa de desenvolvimento
@@ -159,19 +175,19 @@ PRÓXIMA:   Fase 3 — SDD-03 (CRUD): serializers, ViewSets, routers para Profis
 - [x] `on_delete=PROTECT` validado via teste manual (exclusão bloqueada com consulta vinculada)
 - [x] Todos os campos obrigatórios/opcionais conforme RN-01 a RN-11
 
-**Fase 3**
-- [ ] CRUD completo de `Profissional` (criar, listar, detalhar, atualizar, excluir)
-- [ ] CRUD completo de `Consulta` (criar, listar, detalhar, atualizar, excluir)
-- [ ] Endpoint de busca de consultas por ID do profissional funcional
-- [ ] Serializers aplicando validação combinada de `email`/`telefone` (RN-08)
-- [ ] Erros de validação retornam 400 com mensagem clara por campo
-- [ ] Extensões: constraint de conflito de horário, `select_related`, filtro por intervalo de data (SDD-03, RN-11 a RN-14)
+**Fase 3 (concluída — ver SDD-03)**
+- [x] CRUD completo de `Profissional` (criar, listar, detalhar, atualizar, excluir)
+- [x] CRUD completo de `Consulta` (criar, listar, detalhar, atualizar, excluir)
+- [x] Endpoint de busca de consultas por ID do profissional funcional
+- [x] Serializers aplicando validação combinada de `email`/`telefone` (RN-08)
+- [x] Erros de validação retornam 400 com mensagem clara por campo
+- [x] Extensões: constraint de conflito de horário, `select_related`, filtro por intervalo de data (SDD-03, RN-11 a RN-14)
 
-**Fase 4**
-- [ ] Rotas de escrita retornam 401/403 sem autenticação válida
-- [ ] CORS restrito ao(s) domínio(s) configurado(s) via `.env`
-- [ ] Nenhum dado sensível vaza em mensagem de erro de autenticação
-- [ ] **Atenção:** `/api/token/`, `/api/token/refresh/`, `/health/` e as rotas do `drf-spectacular` são explicitamente públicas (`AllowAny`) — sem isso, ninguém consegue obter o primeiro token (SDD-04, RN-15)
+**Fase 4 (concluída — ver SDD-04)**
+- [x] Rotas de escrita retornam 401/403 sem autenticação válida
+- [x] CORS restrito ao(s) domínio(s) configurado(s) via `.env`
+- [x] Nenhum dado sensível vaza em mensagem de erro de autenticação
+- [x] **Atenção:** `/api/token/`, `/api/token/refresh/`, `/health/` são explicitamente públicas (`AllowAny`) — validado via curl. Rotas do `drf-spectacular` ficam pendentes para o SDD-08 (ainda não implementado)
 
 **Fase 5**
 - [ ] Cobertura mínima definida atingida (CRUD + erros)
