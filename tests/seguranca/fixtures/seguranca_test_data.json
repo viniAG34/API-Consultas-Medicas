@@ -1,0 +1,35 @@
+{
+  "endpoints": {
+    "token": "/api/token/",
+    "token_refresh": "/api/token/refresh/",
+    "profissionais": "/api/profissionais/",
+    "health": "/health/"
+  },
+  "campos": {
+    "username": "username",
+    "password": "password",
+    "access": "access",
+    "refresh": "refresh",
+    "status": "status"
+  },
+  "usuarios": {
+    "auth": {"username": "usuario_auth", "password": "senha-correta-123"},
+    "ca02": {"username": "usuario_ca02", "password": "senha-correta-999"},
+    "rate": {"username": "usuario_rate", "password": "senha-correta-000"},
+    "health": {"username": "usuario_health", "password": "senha-correta-321"}
+  },
+  "senha_invalida_ca02": "senha-totalmente-errada",
+  "senha_errada_rate": "senha-errada",
+  "ips": {
+    "login": "10.0.0.1",
+    "refresh": "10.0.0.2",
+    "ca02": "10.0.0.3",
+    "rate_login": "10.0.0.20",
+    "health": "10.0.0.30"
+  },
+  "cors": {
+    "origem_permitida": "http://permitido.exemplo.com",
+    "origem_nao_permitida": "http://nao-permitido.exemplo.com"
+  },
+  "mensagem_erro_interno_simulada": "Falha de banco simulada"
+}

@@ -7,31 +7,35 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Profissional',
+            name="Profissional",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nome_social', models.CharField(max_length=255)),
-                ('profissao', models.CharField(max_length=100)),
-                ('registro_profissional', models.CharField(max_length=50)),
-                ('email', models.EmailField(blank=True, max_length=254)),
-                ('telefone', models.CharField(blank=True, max_length=20)),
-                ('logradouro', models.CharField(max_length=255)),
-                ('numero', models.CharField(blank=True, max_length=20)),
-                ('bairro', models.CharField(max_length=100)),
-                ('cidade', models.CharField(max_length=100)),
-                ('estado', models.CharField(max_length=2)),
-                ('cep', models.CharField(max_length=9)),
-                ('complemento', models.CharField(blank=True, max_length=255)),
-                ('criado_em', models.DateTimeField(auto_now_add=True)),
-                ('atualizado_em', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("nome_social", models.CharField(max_length=255)),
+                ("profissao", models.CharField(max_length=100)),
+                ("registro_profissional", models.CharField(max_length=50)),
+                ("email", models.EmailField(blank=True, max_length=254)),
+                ("telefone", models.CharField(blank=True, max_length=20)),
+                ("logradouro", models.CharField(max_length=255)),
+                ("numero", models.CharField(blank=True, max_length=20)),
+                ("bairro", models.CharField(max_length=100)),
+                ("cidade", models.CharField(max_length=100)),
+                ("estado", models.CharField(max_length=2)),
+                ("cep", models.CharField(max_length=9)),
+                ("complemento", models.CharField(blank=True, max_length=255)),
+                ("criado_em", models.DateTimeField(auto_now_add=True)),
+                ("atualizado_em", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'ordering': ['nome_social'],
+                "ordering": ["nome_social"],
             },
         ),
     ]

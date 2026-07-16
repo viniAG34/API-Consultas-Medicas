@@ -1,0 +1,9 @@
+{
+  "endpoint_consultas": "/api/consultas/",
+  "campos": {
+    "profissional": "profissional",
+    "data_hora": "data_hora",
+    "detail": "detail",
+    "non_field_errors": "non_field_errors"
+  }
+}

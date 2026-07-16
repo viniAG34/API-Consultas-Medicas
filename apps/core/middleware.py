@@ -14,7 +14,9 @@ class MiddlewareLogAcesso:
         duracao_ms = round((time.monotonic() - inicio) * 1000, 1)
 
         usuario = getattr(request, "user", None)
-        identificador_usuario = usuario.username if usuario and usuario.is_authenticated else "anonimo"
+        identificador_usuario = (
+            usuario.username if usuario and usuario.is_authenticated else "anonimo"
+        )
 
         logger.info(
             "Requisição processada",

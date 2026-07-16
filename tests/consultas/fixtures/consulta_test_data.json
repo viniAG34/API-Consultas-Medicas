@@ -1,0 +1,37 @@
+{
+  "endpoint_consultas": "/api/consultas/",
+  "campos": {
+    "id": "id",
+    "profissional": "profissional",
+    "data_hora": "data_hora",
+    "results": "results"
+  },
+  "outro_profissional": {
+    "nome_social": "Outro Profissional",
+    "profissao": "Médica",
+    "registro_profissional": "CRM-0001",
+    "email": "outro@example.com",
+    "logradouro": "Rua B",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  },
+  "profissional_template_multiplos": {
+    "profissao": "Médica",
+    "logradouro": "Rua X",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  },
+  "profissional_inexistente": 999999,
+  "datas": {
+    "consulta_3": "2026-08-02T10:00:00Z",
+    "fora_intervalo_1": "2026-07-20T10:00:00Z",
+    "dentro_intervalo": "2026-08-05T10:00:00Z",
+    "fora_intervalo_2": "2026-08-20T10:00:00Z",
+    "filtro_data_inicio": "2026-08-01",
+    "filtro_data_fim": "2026-08-15"
+  }
+}

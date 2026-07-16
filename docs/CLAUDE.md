@@ -36,7 +36,12 @@ Se dois SDDs conflitarem, o SDD da etapa atual prevalece. Se conflitarem com o S
 ### Constantes
 - **Zero números mágicos** — toda constante em `apps/core/constantes.py`
 - Toda constante tem nome autoexplicativo e comentário referenciando o SDD/seção de origem
-- Exemplos esperados: `TAMANHO_MAX_NOME_SOCIAL`, `LIMITE_PAGINACAO_PADRAO`, `MAX_TENTATIVAS_LOGIN`
+- Exemplos esperados: `LIMITE_PAGINACAO_PADRAO`, `MAX_TENTATIVAS_LOGIN`
+- **Exceção explícita:** `max_length` de campos de model (ex: `nome_social = models.CharField(max_length=255)`)
+  **não** é extraído para `constantes.py` — é um limite estrutural de coluna (schema de banco), não uma
+  regra de negócio configurável como `LIMITE_PAGINACAO_PADRAO` ou `MAX_TENTATIVAS_LOGIN`. Decisão revisitada
+  e fechada na sessão de pente-fino de 2026-07-15 (ver `docs/SDD-02-MODELAGEM-DE-DADOS.md`, referência de
+  implementação, que já hardcoda esses valores) — não reabrir essa dúvida em revisões futuras.
 
 ### Python / Django
 - Type hints em funções utilitárias e métodos de serviço (views e serializers seguem convenção DRF padrão)
@@ -88,6 +93,8 @@ except Exception as e:
 - `APITestCase` do DRF para todos os testes de endpoint
 - Todo teste de erro verifica o **status code correto** e a **mensagem de erro relevante**, não apenas "não é 200"
 - Nenhum teste depende de ordem de execução ou de estado deixado por outro teste (setup/teardown isolado)
+- **Dados de teste (payload, endpoint, nome de campo) vivem em `fixtures/<modulo>_test_data.json`**, ao lado do(s) arquivo(s) de teste que os usam, carregados via `carregar_dados_teste(__file__, "...")` (`tests/base.py`) — nunca magic string solta no corpo do teste. Exceção: mensagens de erro esperadas verificadas via `assertIn` (ex: `"vinculadas"`) continuam literais no teste — são a própria asserção validada contra `apps/core/exceptions.py`, não um dado de entrada; duplicá-las no JSON criaria uma segunda fonte de verdade que pode ficar dessincronizada da mensagem real.
+- **Dados idênticos reaproveitados por mais de um módulo** vivem em `tests/fixtures/dados_compartilhados.json`, carregados via `carregar_dados_compartilhados()`. Cada chave nesse arquivo (ex: `profissionais.ana_souza`, `profissionais.carla_lima`) representa uma **identidade fixa e imutável** — o mesmo profissional/consulta, com os mesmos dados, em todo lugar onde a chave é referenciada. **Nunca** reaproveite uma chave compartilhada para um payload só "parecido" ou "quase igual"; se um teste precisa de uma variação (outro campo, outro valor, mesmo que seja "a mesma pessoa" conceitualmente com um dado diferente), crie uma entrada local nova no `fixtures/<modulo>_test_data.json` daquele módulo, com um nome que deixe a diferença óbvia — nunca um novo teste "pegando emprestado" `ana_souza`/`carla_lima` e sobrescrevendo um campo por fora. Exemplo real: o profissional de `tests/integracao/` é a mesma "Carla Lima"/CRM-9876 mas com `telefone` em vez de `email` — por isso ele é uma entrada **local** (`profissional_carla` em `integracao_test_data.json`), não a chave compartilhada `carla_lima`.
 
 ---
 
@@ -114,35 +121,72 @@ except Exception as e:
 ## 4. Etapa atual
 
 ```
-STATUS:    FASE 4 (SDD-04) CONCLUÍDA — JWT, CORS, rate limiting e logging JSON validados
-           via docker-compose + curl contra o container real (2026-07-13)
-ETAPA:     SDD-04 implementado: djangorestframework-simplejwt e django-cors-headers
-           instalados (dependência de CORS estava ausente desde o SDD-01, corrigida
-           nesta sessão). apps/core/constantes.py estendido com constantes de
-           JWT/throttle. REST_FRAMEWORK (settings/base.py) estendido com
-           DEFAULT_AUTHENTICATION_CLASSES (JWT), DEFAULT_PERMISSION_CLASSES
-           (IsAuthenticated global) e DEFAULT_THROTTLE_CLASSES/RATES, preservando
-           paginação e EXCEPTION_HANDLER do SDD-03. SIMPLE_JWT configurado com tempos
-           de vida via constante. CORS_ALLOWED_ORIGINS via .env, CORS_ALLOW_ALL_ORIGINS
-           sempre False. apps/core/throttling.py (ThrottleLogin), apps/core/logging.py
-           (FormatadorJSON) e apps/core/middleware.py (MiddlewareLogAcesso, último no
-           MIDDLEWARE) criados. apps/core/exception_handler.py (JÁ EXISTENTE) estendido
-           com logging estruturado via logger "lacrei.erros". TokenObtainPairViewPublica
-           e TokenRefreshViewPublica com AllowAny explícito em config/urls.py.
-           VerificarSaude (apps/core/views.py) com AllowAny explícito. LOGGING
-           (dictConfig) reconfigurado com formatter JSON — incluindo override explícito
-           do logger "django" para evitar linha duplicada em texto puro que o
-           DEFAULT_LOGGING do Django injeta quando DEBUG=True (achado durante a
-           verificação real, não previsto no SDD). SDD-03 documentado com nota sobre a
-           armadilha do UniqueTogetherValidator automático do DRF (já corrigida no
-           código, apenas registrada para referência futura). CA-01 a CA-17 verificados
-           via curl + docker logs (ver relatório da sessão).
+STATUS:    FASE 5 (SDD-05) CONCLUÍDA — suíte de testes automatizados completa,
+           40 testes, 0 falhas, 0 erros, 0 pulados (2026-07-14). CORREÇÕES DE
+           PENTE-FINO aplicadas em cima do relatório de auditoria da sessão
+           anterior (2026-07-15/16) — ver ETAPA abaixo. Suíte segue em 40/40
+           após as correções (nenhum teste novo, um teste existente ajustado).
+ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD):
+           (1) .dockerignore criado na raiz (.env, .env.*, .git, .gitignore,
+           __pycache__/, *.pyc, tests/, docs/, .ruff_cache/, staticfiles/) —
+           evita segredo (.env) e histórico .git dentro da imagem Docker.
+           ATENÇÃO: isso também remove tests/ da imagem final — quebra
+           `docker-compose exec web python manage.py test` depois de um
+           rebuild; ver nota de atenção abaixo. (2) apps/core/views.py —
+           health check agora loga erro (logger "lacrei.saude", exc_info=True)
+           antes do 503, em vez de engolir a exceção silenciosamente.
+           (3) config/settings/production.py — hardening HTTPS/cookies
+           (SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE,
+           SECURE_HSTS_SECONDS, SECURE_PROXY_SSL_HEADER), preparando para o
+           ALB do SDD-07. (4) ProfissionalSerializer.validate() (RN-03,
+           email/telefone) migrado de serializers.ValidationError direto para
+           ErroValidacao (apps/core/exceptions.py) — mesmo tratamento que
+           ConsultaSerializer já dava ao conflito de horário; resposta mudou
+           de {"contato": [...]} para {"detail": "..."} — teste
+           tests/profissionais/test_erros.py ajustado. (5) apps/core/utils.py
+           criado com valor_efetivo(dados, instancia, campo, default) —
+           elimina a duplicação do padrão dados.get(campo,
+           getattr(instancia, campo, default)) entre ProfissionalSerializer e
+           ConsultaSerializer. (6) ruff e black adicionados como
+           [tool.poetry.group.dev.dependencies] no pyproject.toml, com
+           [tool.ruff]/[tool.black] em line-length=100 (alinhado ao
+           CONVENCOES-CODIGO.md) — poetry.lock regenerado. (7) `black .`
+           rodado em todo o repositório (23 arquivos reformatados, sem
+           mudança de lógica). (8) Status HTTP literais (500/400/404/503)
+           substituídos por rest_framework.status.HTTP_* em
+           apps/core/exceptions.py, exception_handler.py e views.py.
+           (9) tests/seguranca/test_cors_e_erros.py corrigido para usar
+           status.HTTP_500_INTERNAL_SERVER_ERROR. (10) Decisões fechadas
+           documentadas: CLAUDE.md seção "Constantes" agora registra
+           explicitamente que max_length de model é limite estrutural de
+           coluna, não extraído para constantes.py; ErroRecursoNaoEncontrado
+           (apps/core/exceptions.py) ganhou docstring explicando que está
+           reservada para um futuro lookup por campo não-PK, não deve ser
+           removida. Verificação final: ruff check limpo, black --check limpo,
+           40/40 testes passando (confirmado após rebuild da imagem web com o
+           poetry.lock atualizado), health check com banco desligado
+           reproduzido via `docker compose stop db` — log ERRO
+           "Health check falhou: conexão com banco indisponível" com stack
+           trace completo confirmado via `docker logs`.
+           PONTO DE ATENÇÃO (achado nesta sessão, fora do escopo das 10
+           correções pedidas): docker-entrypoint.sh ignora qualquer comando
+           passado (`"$@"`) — sempre executa `exec gunicorn ...`
+           incondicionalmente. Isso significa que `docker run <imagem>
+           <comando>` / `docker compose run web <comando>` nunca rodam o
+           comando pedido, só sobem outro gunicorn. `docker-compose exec web
+           python manage.py test` continua funcionando (exec entra num
+           container já rodando, não passa pelo entrypoint), mas só enquanto
+           tests/ estiver presente na imagem — o que deixou de ser verdade
+           depois da correção (1) acima. Decisão pendente para o SDD-06: como
+           a CI vai rodar a suíte (imagem separada para test, stage dedicado
+           no Dockerfile, ou ajustar docker-entrypoint.sh para respeitar
+           "$@" via `exec "$@"`).
 SDDs:      Todos escritos e auditados (01 Setup, 02 Modelagem, 03 CRUD+refinamentos,
            04 Segurança, 05 Testes, 06 CI/CD, 07 Deploy AWS, 08 Swagger, 09 README)
-PRÓXIMA:   Fase 5 — SDD-05 (Testes Automatizados): APITestCase cobrindo CRUD de
-           Profissional/Consulta, casos de erro (dados ausentes, tipo inválido, FK
-           inexistente, exclusão protegida), autenticação/rate limiting e health check
-           público — ver estrutura de tests/ já definida na seção 7 deste documento.
+PRÓXIMA:   Fase 6 — SDD-06 (Pipeline CI/CD): GitHub Actions rodando lint → test →
+           build → deploy em sequência, falhando corretamente se algum step falhar.
+           Resolver o ponto de atenção do docker-entrypoint.sh (acima) como parte
+           do design do step de test/build do SDD-06.
 ```
 
 ### Sequência completa de desenvolvimento
@@ -189,9 +233,9 @@ PRÓXIMA:   Fase 5 — SDD-05 (Testes Automatizados): APITestCase cobrindo CRUD 
 - [x] Nenhum dado sensível vaza em mensagem de erro de autenticação
 - [x] **Atenção:** `/api/token/`, `/api/token/refresh/`, `/health/` são explicitamente públicas (`AllowAny`) — validado via curl. Rotas do `drf-spectacular` ficam pendentes para o SDD-08 (ainda não implementado)
 
-**Fase 5**
-- [ ] Cobertura mínima definida atingida (CRUD + erros)
-- [ ] Testes de erro cobrem: dados ausentes, tipo inválido, FK inexistente, exclusão protegida
+**Fase 5 (concluída — ver SDD-05)**
+- [x] Cobertura mínima definida atingida (CRUD + erros) — 40 testes, 0 falhas
+- [x] Testes de erro cobrem: dados ausentes, tipo inválido, FK inexistente, exclusão protegida
 
 **Fase 6**
 - [ ] Pipeline roda lint → test → build → deploy em sequência

@@ -1,0 +1,48 @@
+{
+  "endpoints": {
+    "profissionais": "/api/profissionais/",
+    "consultas": "/api/consultas/"
+  },
+  "campos": {
+    "id": "id",
+    "profissional": "profissional",
+    "data_hora": "data_hora",
+    "results": "results"
+  },
+  "profissional_carla": {
+    "nome_social": "Carla Lima",
+    "profissao": "Médica",
+    "registro_profissional": "CRM-9876",
+    "telefone": "84999999999",
+    "logradouro": "Av. Central",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  },
+  "profissional_a": {
+    "nome_social": "Profissional A",
+    "profissao": "Médica",
+    "registro_profissional": "CRM-0001",
+    "email": "a@example.com",
+    "logradouro": "Rua A",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  },
+  "profissional_b": {
+    "nome_social": "Profissional B",
+    "profissao": "Médica",
+    "registro_profissional": "CRM-0002",
+    "email": "b@example.com",
+    "logradouro": "Rua B",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  },
+  "datas": {
+    "consulta_b": "2026-08-02T10:00:00Z"
+  }
+}

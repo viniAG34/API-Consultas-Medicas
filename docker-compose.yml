@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # Montado a partir dos mesmos POSTGRES_* do .env — nunca hardcoded,
+      # nunca digitado duas vezes. "db" é o nome do serviço na rede do Compose.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

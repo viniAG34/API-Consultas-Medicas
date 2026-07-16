@@ -1,0 +1,30 @@
+{
+  "profissionais": {
+    "ana_souza": {
+      "nome_social": "Ana Souza",
+      "profissao": "Psicóloga",
+      "registro_profissional": "CRP-12345",
+      "email": "ana@example.com",
+      "logradouro": "Rua das Flores",
+      "bairro": "Centro",
+      "cidade": "Mossoró",
+      "estado": "RN",
+      "cep": "59600-000"
+    },
+    "carla_lima": {
+      "nome_social": "Carla Lima",
+      "profissao": "Médica",
+      "registro_profissional": "CRM-9876",
+      "email": "carla@example.com",
+      "logradouro": "Av. Central",
+      "bairro": "Centro",
+      "cidade": "Mossoró",
+      "estado": "RN",
+      "cep": "59600-000"
+    }
+  },
+  "datas": {
+    "consulta_manha": "2026-08-01T10:00:00Z",
+    "consulta_tarde": "2026-08-10T14:00:00Z"
+  }
+}

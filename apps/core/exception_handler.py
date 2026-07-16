@@ -1,5 +1,6 @@
 import logging
 
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
@@ -32,7 +33,10 @@ def tratar_erro_global(exc, context):
                 exc_info=True,
                 extra={"path": _path(context), "metodo": _metodo(context)},
             )
-            return Response({"detail": "Erro interno do servidor."}, status=500)
+            return Response(
+                {"detail": "Erro interno do servidor."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 def _path(context) -> str:

@@ -2,6 +2,7 @@
 Configurações comuns a todos os ambientes (development, production).
 Cada ambiente específico importa este módulo e sobrescreve o que for necessário.
 """
+
 from datetime import timedelta
 from pathlib import Path
 

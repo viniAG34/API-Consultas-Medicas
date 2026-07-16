@@ -1,7 +1,12 @@
+import logging
+
 from django.db import connection
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+logger = logging.getLogger("lacrei.saude")
 
 
 class VerificarSaude(APIView):
@@ -18,5 +23,6 @@ class VerificarSaude(APIView):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
         except Exception:
-            return Response({"status": "erro"}, status=503)
+            logger.error("Health check falhou: conexão com banco indisponível", exc_info=True)
+            return Response({"status": "erro"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({"status": "ok"})

@@ -1,0 +1,31 @@
+{
+  "endpoint_profissionais": "/api/profissionais/",
+  "campos": {
+    "id": "id",
+    "nome_social": "nome_social",
+    "profissao": "profissao",
+    "registro_profissional": "registro_profissional",
+    "email": "email",
+    "telefone": "telefone",
+    "logradouro": "logradouro",
+    "numero": "numero",
+    "bairro": "bairro",
+    "cidade": "cidade",
+    "estado": "estado",
+    "cep": "cep",
+    "complemento": "complemento",
+    "criado_em": "criado_em",
+    "atualizado_em": "atualizado_em",
+    "count": "count",
+    "next": "next",
+    "previous": "previous",
+    "results": "results",
+    "detail": "detail"
+  },
+  "nome_social_atualizado": "Ana Souza Silva",
+  "outro_profissional_override": {
+    "nome_social": "Bruno Costa",
+    "registro_profissional": "CRP-99999"
+  },
+  "id_inexistente": 999999
+}

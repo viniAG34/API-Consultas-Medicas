@@ -1,0 +1,27 @@
+{
+  "endpoint_profissionais": "/api/profissionais/",
+  "campos": {
+    "count": "count",
+    "next": "next",
+    "previous": "previous",
+    "results": "results",
+    "nome_social": "nome_social",
+    "detail": "detail"
+  },
+  "campos_esperados_profissional": [
+    "id", "nome_social", "profissao", "registro_profissional",
+    "email", "telefone", "logradouro", "numero", "bairro",
+    "cidade", "estado", "cep", "complemento", "criado_em", "atualizado_em"
+  ],
+  "profissional_teste": {
+    "nome_social": "Teste",
+    "profissao": "Médica",
+    "registro_profissional": "CRM-1",
+    "email": "t@example.com",
+    "logradouro": "Rua X",
+    "bairro": "Centro",
+    "cidade": "Mossoró",
+    "estado": "RN",
+    "cep": "59600-000"
+  }
+}

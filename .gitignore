@@ -1,0 +1,26 @@
+# Ambiente
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Poetry
+poetry.lock.bak
+
+# Django
+staticfiles/
+media/
+*.log
+db.sqlite3
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+.claude/
