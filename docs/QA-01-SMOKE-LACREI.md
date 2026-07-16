@@ -198,10 +198,24 @@ EOF
 
 ---
 
-## 10. Suíte de testes dentro do container
+## 10. Suíte de testes via bind mount, em container efêmero
+
+> **Por que mudou:** o `.dockerignore` (ver seção "Pré-requisitos" acima) exclui `tests/` da
+> imagem de produção — não existe mais `tests/` dentro do container `web`, então
+> `docker-compose exec web python manage.py test` não tem mais o que rodar. `tests/` continua
+> fora da imagem (o `.dockerignore` segue correto — nada muda em como a imagem de produção é
+> construída); para este passo, `tests/` é montado por bind mount num container **efêmero**,
+> só para a duração deste comando. A partir do SDD-06 a suíte também roda contra Postgres real
+> no CI, então esta etapa deixa de ser a única rede de segurança.
+
+```powershell
+# PowerShell
+docker compose run --rm -v ${PWD}/tests:/app/tests web python manage.py test
+```
 
 ```bash
-docker-compose exec web python manage.py test
+# bash
+docker compose run --rm -v $(pwd)/tests:/app/tests web python manage.py test
 ```
 
 **Critério:** todos os testes passam (SDD-05), incluindo `tests/seguranca/test_health_check.py`
@@ -228,4 +242,4 @@ docker-compose down
 - [ ] Logs da aplicação em JSON estruturado com campos padrão
 - [ ] Token não aparece nos logs
 - [ ] Rate limiting de login ativa 429 após 5 tentativas
-- [ ] `python manage.py test` passa dentro do container
+- [ ] `docker compose run --rm -v .../tests:/app/tests web python manage.py test` passa

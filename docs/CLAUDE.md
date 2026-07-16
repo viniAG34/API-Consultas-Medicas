@@ -124,25 +124,27 @@ except Exception as e:
 STATUS:    FASE 5 (SDD-05) CONCLUÍDA — suíte de testes automatizados completa,
            40 testes, 0 falhas, 0 erros, 0 pulados (2026-07-14). CORREÇÕES DE
            PENTE-FINO aplicadas em cima do relatório de auditoria da sessão
-           anterior (2026-07-15/16) — ver ETAPA abaixo. Suíte segue em 40/40
-           após as correções (nenhum teste novo, um teste existente ajustado).
-ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD):
-           (1) .dockerignore criado na raiz (.env, .env.*, .git, .gitignore,
-           __pycache__/, *.pyc, tests/, docs/, .ruff_cache/, staticfiles/) —
-           evita segredo (.env) e histórico .git dentro da imagem Docker.
-           ATENÇÃO: isso também remove tests/ da imagem final — quebra
-           `docker-compose exec web python manage.py test` depois de um
-           rebuild; ver nota de atenção abaixo. (2) apps/core/views.py —
-           health check agora loga erro (logger "lacrei.saude", exc_info=True)
-           antes do 503, em vez de engolir a exceção silenciosamente.
-           (3) config/settings/production.py — hardening HTTPS/cookies
-           (SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE,
-           SECURE_HSTS_SECONDS, SECURE_PROXY_SSL_HEADER), preparando para o
-           ALB do SDD-07. (4) ProfissionalSerializer.validate() (RN-03,
-           email/telefone) migrado de serializers.ValidationError direto para
-           ErroValidacao (apps/core/exceptions.py) — mesmo tratamento que
-           ConsultaSerializer já dava ao conflito de horário; resposta mudou
-           de {"contato": [...]} para {"detail": "..."} — teste
+           anterior (2026-07-15/16) — ver ETAPA abaixo. Sessão seguinte
+           (2026-07-16) fechou os dois pontos pendentes dessa auditoria
+           (docker-entrypoint.sh + QA-01 passo 10) — ver ETAPA abaixo. Suíte
+           segue em 40/40 (confirmado via container efêmero com bind mount,
+           não houve mudança de teste nesta sessão).
+ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
+           consolidando a sessão de 2026-07-15/16 e o fechamento de
+           2026-07-16: (1) .dockerignore criado na raiz (.env, .env.*, .git,
+           .gitignore, __pycache__/, *.pyc, tests/, docs/, .ruff_cache/,
+           staticfiles/) — evita segredo (.env) e histórico .git dentro da
+           imagem Docker. (2) apps/core/views.py — health check agora loga
+           erro (logger "lacrei.saude", exc_info=True) antes do 503, em vez
+           de engolir a exceção silenciosamente. (3) config/settings/production.py
+           — hardening HTTPS/cookies (SECURE_SSL_REDIRECT,
+           SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_HSTS_SECONDS,
+           SECURE_PROXY_SSL_HEADER), preparando para o ALB do SDD-07.
+           (4) ProfissionalSerializer.validate() (RN-03, email/telefone)
+           migrado de serializers.ValidationError direto para ErroValidacao
+           (apps/core/exceptions.py) — mesmo tratamento que ConsultaSerializer
+           já dava ao conflito de horário; resposta mudou de
+           {"contato": [...]} para {"detail": "..."} — teste
            tests/profissionais/test_erros.py ajustado. (5) apps/core/utils.py
            criado com valor_efetivo(dados, instancia, campo, default) —
            elimina a duplicação do padrão dados.get(campo,
@@ -162,31 +164,43 @@ ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD):
            coluna, não extraído para constantes.py; ErroRecursoNaoEncontrado
            (apps/core/exceptions.py) ganhou docstring explicando que está
            reservada para um futuro lookup por campo não-PK, não deve ser
-           removida. Verificação final: ruff check limpo, black --check limpo,
-           40/40 testes passando (confirmado após rebuild da imagem web com o
-           poetry.lock atualizado), health check com banco desligado
-           reproduzido via `docker compose stop db` — log ERRO
-           "Health check falhou: conexão com banco indisponível" com stack
-           trace completo confirmado via `docker logs`.
-           PONTO DE ATENÇÃO (achado nesta sessão, fora do escopo das 10
-           correções pedidas): docker-entrypoint.sh ignora qualquer comando
-           passado (`"$@"`) — sempre executa `exec gunicorn ...`
-           incondicionalmente. Isso significa que `docker run <imagem>
-           <comando>` / `docker compose run web <comando>` nunca rodam o
-           comando pedido, só sobem outro gunicorn. `docker-compose exec web
-           python manage.py test` continua funcionando (exec entra num
-           container já rodando, não passa pelo entrypoint), mas só enquanto
-           tests/ estiver presente na imagem — o que deixou de ser verdade
-           depois da correção (1) acima. Decisão pendente para o SDD-06: como
-           a CI vai rodar a suíte (imagem separada para test, stage dedicado
-           no Dockerfile, ou ajustar docker-entrypoint.sh para respeitar
-           "$@" via `exec "$@"`).
+           removida. (11) [2026-07-16] docker-entrypoint.sh corrigido —
+           agora respeita comando explícito via `exec "$@"` quando `$#` > 0,
+           com fallback para `exec gunicorn config.wsgi:application --bind
+           0.0.0.0:8000` quando nenhum comando é passado; migrate +
+           collectstatic continuam rodando incondicionalmente antes desse
+           bloco. Antes, o entrypoint ignorava qualquer comando e sempre
+           subia outro Gunicorn. (12) [2026-07-16] docs/QA-01-SMOKE-LACREI.md,
+           passo 10, reescrito: como o .dockerignore (item 1 acima) remove
+           tests/ da imagem de produção, `docker-compose exec web python
+           manage.py test` não tem mais o que rodar. Decisão: NÃO recriar
+           tests/ na imagem de produção — em vez disso, tests/ é montado via
+           bind mount num container efêmero só para este comando:
+           `docker compose run --rm -v ${PWD}/tests:/app/tests web python
+           manage.py test` (nota equivalente para bash com `$(pwd)`). O
+           .dockerignore e o docker-compose.yml permanentes não mudam.
+           Verificação final (2026-07-16, contra containers reais, Docker
+           Desktop): `docker compose run --rm web python manage.py shell -c
+           "print('ok')"` roda o comando pedido sem subir Gunicorn (entrypoint
+           corrigido, testado após rebuild da imagem). QA-01 completo rodado
+           do início ao fim — todos os itens do checklist aprovados,
+           incluindo o passo 10 via bind mount (40/40 testes passando dentro
+           do container efêmero).
+           ATENÇÃO (achado na sessão de 2026-07-16, resolvido): git bash no
+           Windows reescreve caminhos POSIX (`/app/tests`) passados a
+           binários não-MSYS como o `docker`, quebrando `-v $(pwd)/tests:/app/tests`
+           silenciosamente (mount aponta para um caminho errado, sem erro
+           visível — só "Found 0 test(s)"). Contornado com
+           `MSYS_NO_PATHCONV=1` na sessão de verificação; quem rodar este
+           comando em Git Bash no Windows deve fazer o mesmo. Não afeta
+           PowerShell nem Linux/Mac.
 SDDs:      Todos escritos e auditados (01 Setup, 02 Modelagem, 03 CRUD+refinamentos,
            04 Segurança, 05 Testes, 06 CI/CD, 07 Deploy AWS, 08 Swagger, 09 README)
 PRÓXIMA:   Fase 6 — SDD-06 (Pipeline CI/CD): GitHub Actions rodando lint → test →
            build → deploy em sequência, falhando corretamente se algum step falhar.
-           Resolver o ponto de atenção do docker-entrypoint.sh (acima) como parte
-           do design do step de test/build do SDD-06.
+           Os dois pontos pendentes da sessão de pente-fino (entrypoint e QA-01
+           passo 10) estão resolvidos — nenhum bloqueio conhecido restante antes
+           de iniciar o SDD-06.
 ```
 
 ### Sequência completa de desenvolvimento
