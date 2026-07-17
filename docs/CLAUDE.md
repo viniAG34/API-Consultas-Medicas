@@ -121,12 +121,19 @@ except Exception as e:
 ## 4. Etapa atual
 
 ```
-STATUS:    FASE 6 (SDD-06) CONCLUÍDA — pipeline CI/CD escrito e validado
-           localmente (2026-07-16). Suíte segue em 40/40 (confirmado via
-           service container Postgres equivalente ao do Actions, ver ETAPA
-           abaixo). Fases 1-5 concluídas anteriormente; correções de
-           pente-fino e QA-01 fechados em sessões anteriores — ver histórico
-           abaixo.
+STATUS:    FASE 7 (SDD-07) CONCLUÍDA E VALIDADA (2026-07-17) — staging e
+           produção healthy, rodando a mesma imagem (f42ab02); rollback
+           testado manualmente com sucesso (via SSH, fora desta sessão),
+           inclusive reproduzindo uma regressão de propósito para confirmar
+           que o healthcheck detecta o problema, com retorno à imagem
+           correta em ~24s sem intervenção manual além do comando em si. Ver
+           ETAPA — FASE 7 abaixo. FASE 8 (SDD-08, bônus) CONCLUÍDA
+           LOCALMENTE (2026-07-17) — Swagger/Redoc implementados e
+           validados via docker-compose (40/40 testes, ruff/black ok);
+           verificação em produção/staging pendente do próximo deploy real
+           (fora desta sessão). Ver ETAPA — FASE 8 abaixo. Fases 1-6
+           concluídas anteriormente; correções de pente-fino e QA-01
+           fechados em sessões anteriores — ver histórico abaixo.
 ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
            consolidando a sessão de 2026-07-15/16 e o fechamento de
            2026-07-16: (1) .dockerignore criado na raiz (.env, .env.*, .git,
@@ -218,15 +225,87 @@ ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
            no GitHub (ver lista abaixo); é esperado que `build` falhe até lá.
 SDDs:      Todos escritos e auditados (01 Setup, 02 Modelagem, 03 CRUD+refinamentos,
            04 Segurança, 05 Testes, 06 CI/CD, 07 Deploy AWS, 08 Swagger, 09 README)
-PRÓXIMA:   Fase 7 — SDD-07 (Deploy AWS): provisionar a instância EC2, o
-           repositório ECR, Nginx + Certbot, e cadastrar no GitHub os secrets
-           que o pipeline do SDD-06 já espera: `AWS_ACCESS_KEY_ID`,
-           `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REGISTRY`, `EC2_HOST`,
-           `EC2_USER`, `EC2_SSH_KEY` — sem eles, os jobs `build` e
-           `deploy-staging`/`deploy-producao` do CI/CD continuam falhando por
-           design (lint/testes já funcionam de ponta a ponta). Configurar
-           também o GitHub Environment `producao` com required reviewers
-           (RN-06 do SDD-06) antes do primeiro deploy real.
+ETAPA — FASE 7 (2026-07-17): infraestrutura de deploy sincronizada com o
+           repositório. O deploy em staging/produção (AWS EC2, ECR,
+           Nginx+Certbot, pipeline CI/CD) já estava no ar e funcionando, mas 4
+           bugs reais foram corrigidos direto na instância via SSH manual,
+           fora do Claude Code, e nunca sincronizados de volta — esta sessão
+           fechou essa lacuna. `deploy/staging/docker-compose.yml` e
+           `deploy/producao/docker-compose.yml` criados como cópia de
+           referência real da instância (`DATABASE_URL` sintetizada via
+           `environment:`, healthcheck via `python -c
+           "import urllib.request..."` em vez de `curl`, sem `--no-deps` no
+           deploy). `deploy/nginx/conf.d/lacrei-staging.conf` e
+           `lacrei-producao.conf` criados como referência da config real do
+           Nginx (proxy_pass para localhost:8001/8000, cabeçalho
+           `X-Forwarded-Proto` exigido por `SECURE_PROXY_SSL_HEADER`, blocos
+           SSL inseridos pelo Certbot, sem os certificados em si).
+           `docs/SDD-07-DEPLOY-AWS.md` ganhou a seção "Correções
+           pós-implementação" documentando os 4 bugs (mais um achado menor)
+           com causa raiz e correção — `SECURE_REDIRECT_EXEMPT` confirmado já
+           commitado em `config/settings/production.py` (deploy anterior),
+           nenhuma ação adicional necessária ali. `.env.example` ganhou nota
+           sobre `ALLOWED_HOSTS` precisar de `localhost,127.0.0.1` além do
+           domínio real (requisição interna do healthcheck usa `Host:
+           localhost`). `docs/SDD-01-SETUP-PROJETO.md` ganhou item de
+           checklist sobre case-sensitivity de chaves YAML (`ports` vs
+           `Ports`) — bug menor também encontrado no provisionamento manual.
+           Rollback (RN-07) testado manualmente com sucesso (via SSH, fora
+           desta sessão): reversão de staging para uma imagem anterior à
+           correção do item 4 (SECURE_REDIRECT_EXEMPT) reproduziu o
+           unhealthy esperado, confirmando que o healthcheck detecta
+           regressão real; retorno à imagem corrigida (f42ab02) confirmou
+           healthy em ~24s, sem intervenção manual além do comando em si.
+           `docs/SDD-07-DEPLOY-AWS.md` atualizado: item 6 da seção
+           "Correções pós-implementação" documenta o teste, o comando de
+           rollback (RN-07) foi corrigido para o real (`docker compose pull
+           web` + `docker compose up -d --wait --wait-timeout 60`, sem
+           `--no-deps`/`curl`), nomenclatura `.env.staging`/`.env.production`
+           corrigida para `.env` (RN-01, diagrama e checklist), e o item do
+           checklist de rollback marcado como concluído.
+ETAPA — FASE 8 (SDD-08, 2026-07-17): documentação interativa da API via
+           `drf-spectacular`. `drf-spectacular = "^0.27"` adicionado ao
+           `pyproject.toml` e `poetry.lock` regenerado (via container
+           `python:3.12-slim` efêmero, poetry local indisponível neste
+           ambiente). `config/settings/base.py` — `"drf_spectacular"`
+           adicionado a `INSTALLED_APPS`, `"DEFAULT_SCHEMA_CLASS":
+           "drf_spectacular.openapi.AutoSchema"` adicionado ao dict
+           `REST_FRAMEWORK`, bloco `SPECTACULAR_SETTINGS` (título, descrição,
+           versão, `SERVE_INCLUDE_SCHEMA=False`) adicionado logo acima de
+           `SIMPLE_JWT`. `config/urls.py` — `SpectacularAPIViewPublica`,
+           `SpectacularSwaggerViewPublica`, `SpectacularRedocViewPublica`
+           criadas com `permission_classes = [AllowAny]` explícito (sem isso,
+           herdariam o `IsAuthenticated` global do SDD-04 e ficariam
+           inacessíveis a quem ainda não tem token — SDD-04 RN-15), rotas
+           `/api/schema/`, `/api/docs/`, `/api/redoc/` registradas antes do
+           `include(router.urls)`. `apps/profissionais/serializers.py` —
+           campos `email`/`telefone` do `ProfissionalSerializer` agora
+           declarados explicitamente (antes eram só geração automática do
+           `ModelSerializer`) com `help_text` documentando a regra RN-03
+           (email ou telefone obrigatório); `allow_blank=True` preservado
+           para manter o mesmo comportamento que a geração automática já
+           dava (`blank=True` no model). Verificação local (Docker Desktop,
+           `docker compose up -d --wait`): `GET /api/schema/` → 200 (schema
+           OpenAPI válido, `paths` lista `/api/profissionais/`,
+           `/api/consultas/`, `/api/token/`, `/api/token/refresh/`,
+           `/health/`; `help_text` de email/telefone presente e com encoding
+           UTF-8 correto no schema); `GET /api/docs/` → 200 (HTML referencia
+           `SwaggerUIBundle` e `api/schema` corretamente); `GET /api/redoc/`
+           → 200. Suíte completa rodada via bind mount efêmero (mesmo padrão
+           do QA-01): 40/40 testes passando, sem regressão. `ruff check .` e
+           `black --check .` (versões exatas do `poetry.lock`, via container
+           `python:3.12-slim`) — ambos sem violação. Produção/staging **não
+           testados nesta sessão** — deploy real ainda não rodou (depende do
+           pipeline CI/CD, fora desta sessão); pendente verificar
+           `GET /api/schema/`, `/api/docs/`, `/api/redoc/` (200) nos domínios
+           reais assim que o deploy for confirmado.
+PRÓXIMA:   Fase 9 — SDD-09 (README e Rollback): README completo cobrindo
+           setup local, Docker, testes, deploy (staging/produção),
+           decisões técnicas — incluindo o trade-off documentado no SDD-07
+           (instância única em vez de contas/instâncias separadas) — e a
+           proposta de rollback (SDD-07, RN-07). Já existe uma versão
+           inicial do README; será revisada para incluir os links reais do
+           Swagger (`/api/docs/`, `/api/redoc/`) do SDD-08, agora concluído.
 ```
 
 ### Sequência completa de desenvolvimento
@@ -282,10 +361,16 @@ PRÓXIMA:   Fase 7 — SDD-07 (Deploy AWS): provisionar a instância EC2, o
 - [x] Pipeline falha corretamente se algum step falhar (não avança silenciosamente) — nenhum `continue-on-error`
 - [x] `lint` e `testes` validados localmente e passam de ponta a ponta; `build`/`deploy-*` formalmente prontos, aguardando secrets AWS/EC2 (Fase 7)
 
-**Fase 7**
-- [ ] Ambiente de staging acessível publicamente
-- [ ] Ambiente de produção acessível publicamente
-- [ ] Rollback documentado e testado ao menos uma vez
+**Fase 7 (concluída e validada — ver SDD-07)**
+- [x] Ambiente de staging acessível publicamente
+- [x] Ambiente de produção acessível publicamente
+- [x] Rollback documentado e testado ao menos uma vez (SDD-07, RN-07 — testado manualmente via SSH em 2026-07-17, healthcheck confirmado detectando regressão e recuperando em ~24s)
+
+**Fase 8 (concluída — ver SDD-08)**
+- [x] `/api/schema/`, `/api/docs/`, `/api/redoc/` acessíveis com `AllowAny` explícito, testado localmente (200 nos três)
+- [x] `help_text` de `email`/`telefone` presente no schema (RN-06)
+- [x] 40/40 testes, ruff e black sem violação após a mudança
+- [ ] Verificação em produção/staging — pendente, depende do deploy real (fora desta sessão)
 
 **Fase 9**
 - [ ] README cobre setup local, Docker, testes, deploy, decisões técnicas e rollback

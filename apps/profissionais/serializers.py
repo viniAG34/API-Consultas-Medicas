@@ -28,6 +28,18 @@ class ProfissionalSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "criado_em", "atualizado_em"]
 
+    email = serializers.EmailField(
+        required=False,
+        allow_blank=True,
+        help_text="Email de contato. Obrigatório se telefone não for informado (RN-03).",
+    )
+    telefone = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=20,
+        help_text="Telefone de contato. Obrigatório se email não for informado (RN-03).",
+    )
+
     def validate(self, dados):
         email = valor_efetivo(dados, self.instance, "email", "")
         telefone = valor_efetivo(dados, self.instance, "telefone", "")

@@ -282,3 +282,4 @@ urlpatterns = [
 - [ ] `docker-entrypoint.sh` executa `migrate` e `collectstatic` automaticamente no boot
 - [ ] `DATABASE_URL` é a única variável lida por `DATABASES` no settings — nunca os `POSTGRES_*` diretamente pelo Django
 - [ ] `docker-compose.yml` monta `DATABASE_URL` do serviço `web` a partir dos mesmos `POSTGRES_*` do `.env` (sem duplicar a credencial em dois lugares)
+- [ ] Chaves do `docker-compose.yml` conferidas em minúsculo (`ports`, `environment`, `volumes`) — YAML é case-sensitive, `Ports` (maiúsculo) não é um erro de sintaxe, é uma chave nova ignorada silenciosamente pelo Compose (bug menor real, encontrado durante o provisionamento manual da EC2 no SDD-07)

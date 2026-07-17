@@ -25,7 +25,7 @@ Dado o prazo do desafio (5 dias úteis) e o escopo de uma API de CRUD sem carga 
 
 ## Regras de negócio
 
-- RN-01: Staging e produção rodam como stacks Docker Compose independentes na mesma instância EC2, com arquivos `.env.staging` e `.env.production` distintos — nenhuma variável de ambiente é compartilhada entre os dois.
+- RN-01: Staging e produção rodam como stacks Docker Compose independentes na mesma instância EC2, cada uma com seu próprio arquivo `.env` (um por diretório — `staging/.env` e `producao/.env`) — nenhuma variável de ambiente é compartilhada entre os dois; o isolamento é garantido pela separação de diretórios, não pelo nome do arquivo.
 - RN-02: Cada ambiente tem seu próprio banco PostgreSQL (containers separados, volumes separados) — dados de staging nunca se misturam com produção.
 - RN-03: O acesso a cada ambiente é feito por subdomínio distinto (ex: `staging.api-lacrei.<dominio>` e `api-lacrei.<dominio>`), roteado por Nginx como reverse proxy na própria instância.
 - RN-04: A imagem Docker publicada pelo CI/CD (SDD-06) é armazenada no **Amazon ECR**, versionada pela tag do commit (`github.sha`) — nunca `latest` como única tag.
@@ -89,10 +89,10 @@ Dado o prazo do desafio (5 dias úteis) e o escopo de uma API de CRUD sem carga 
 /opt/lacrei/
 ├── staging/
 │   ├── docker-compose.yml
-│   └── .env.staging
+│   └── .env
 ├── producao/
 │   ├── docker-compose.yml
-│   └── .env.production
+│   └── .env
 └── nginx/
     └── conf.d/
         ├── staging.conf
@@ -190,13 +190,92 @@ server {
 **Rollback (RN-07) — comando manual ou workflow dedicado:**
 ```bash
 # Na instância, dentro da pasta do ambiente (ex: /opt/lacrei/producao)
+export ECR_REGISTRY=<valor do secret ECR_REGISTRY>
 export IMAGE_TAG=<sha-da-versao-anterior-conhecida-boa>
 docker compose pull web
-docker compose up -d --no-deps web
-curl -f http://localhost:8000/health/
+docker compose up -d --wait --wait-timeout 60
 ```
 
 Pode ser formalizado como `workflow_dispatch` manual no GitHub Actions recebendo `IMAGE_TAG` como input, reaproveitando os mesmos steps de SSH — documentar essa opção no SDD-09 como "rollback via GitHub Actions" (uma das formas sugeridas pelo próprio PDF do desafio).
+
+---
+
+## Correções pós-implementação
+
+> Mesmo padrão de registro usado no SDD-03 para o `UniqueTogetherValidator` (bug real
+> encontrado, causa raiz documentada, correção aplicada). Os 4 itens abaixo foram
+> encontrados durante o provisionamento manual da instância EC2 (via SSH direto, fora do
+> Claude Code) e só foram sincronizados de volta para o repositório depois — as referências
+> reais ficam em `deploy/staging/docker-compose.yml`, `deploy/producao/docker-compose.yml` e
+> `deploy/nginx/conf.d/`.
+
+**1. `DATABASE_URL` precisa ser sintetizada via bloco `environment:`, não só `env_file`.**
+Causa raiz: o Docker Compose lê automaticamente um arquivo `.env` no mesmo diretório do
+`docker-compose.yml` para resolver `${VAR}` usado dentro do próprio YAML (ex:
+`${POSTGRES_USER}` no serviço `db`) — isso é diferente de `env_file:`, que só injeta
+variáveis *dentro* do container. O `.env` de cada ambiente (`/opt/lacrei/staging/.env` e
+`/opt/lacrei/producao/.env`) só tem as chaves `POSTGRES_*`, nunca `DATABASE_URL`. Sem a
+síntese explícita, o container `web` sobe sem `DATABASE_URL` no ambiente e o Django falha ao
+conectar. Correção — replicada nas duas referências em `deploy/`:
+```yaml
+environment:
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+```
+**Nota de nomenclatura:** por causa dessa mesma exigência do Compose (o arquivo de
+interpolação de YAML precisa se chamar literalmente `.env`), os arquivos reais na instância
+são `.env` dentro de cada diretório (`staging/`, `producao/`), não `.env.staging`/
+`.env.production` como o exemplo original deste SDD sugeria — o isolamento entre ambientes
+(RN-01) continua garantido porque cada um vive no seu próprio diretório.
+
+**2. `--no-deps` no deploy quebra a primeira subida de um ambiente novo.**
+Causa raiz: se o container `db` ainda não existe (primeiro deploy do ambiente), `docker
+compose up -d --no-deps web` sobe **só** o `web`, que não consegue resolver o hostname `db`
+— a rede do Compose nem tem o serviço `db` para apontar. Correção, já aplicada em
+`.github/workflows/ci-cd.yml` (`deploy-staging`/`deploy-producao`): trocado para `docker
+compose up -d --wait --wait-timeout 60`, sem `--no-deps` e sem `web` no final — sobe/atualiza
+todos os serviços que precisarem, e só considera o deploy bem-sucedido quando o healthcheck
+confirmar saúde.
+
+**3. `curl` não existe na imagem de runtime.**
+Causa raiz: o estágio final do `Dockerfile` (`python:3.12-slim`, sem ferramentas de build) não
+inclui `curl` — então um `healthcheck` de `docker-compose.yml` baseado em `curl -f
+http://localhost:8000/health/` falha sempre, mesmo com a aplicação saudável. Python, por outro
+lado, sempre existe na imagem. Correção, aplicada nas referências em `deploy/`:
+```yaml
+healthcheck:
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+  interval: 5s
+  timeout: 5s
+  retries: 5
+  start_period: 15s
+```
+
+**4. `SECURE_SSL_REDIRECT=True` quebra o healthcheck interno.**
+Causa raiz: o healthcheck do Compose fala `http://localhost:8000/health/` de dentro do
+próprio container — nunca passa pelo Nginx, então nunca carrega o cabeçalho
+`X-Forwarded-Proto: https` que `SECURE_PROXY_SSL_HEADER` espera. Com `SECURE_SSL_REDIRECT`
+ativo, essa requisição HTTP interna é tratada como insegura e o Django tenta redirecioná-la,
+quebrando o healthcheck. Correção, em `config/settings/production.py`:
+```python
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]
+```
+Confirmado que já está no repositório (linha 16 de `config/settings/production.py`, commitado
+e deployado antes desta sessão) — nenhuma ação adicional necessária.
+
+**5. Achado adicional, menor: `ALLOWED_HOSTS` precisa incluir `localhost,127.0.0.1`.**
+Causa raiz: o cabeçalho `Host` da requisição interna do healthcheck (feita de dentro do
+próprio container, para `localhost:8000`) é sempre `localhost`, nunca o domínio público — sem
+`localhost`/`127.0.0.1` em `ALLOWED_HOSTS`, o Django rejeita com 400 (`DisallowedHost`) antes
+mesmo de chegar à view. Resolvido no `.env` real da instância; documentado como nota em
+`.env.example` para não repetir o problema em ambientes futuros.
+
+**6. Rollback (RN-07) testado com uso real, não só descrito na spec.**
+Testado revertendo staging para uma imagem anterior à correção do item 4
+(`SECURE_REDIRECT_EXEMPT`) — reproduziu o `unhealthy` esperado, confirmando que o
+healthcheck detecta regressão real. Em seguida, testado retornando à imagem corrigida
+(`f42ab02`) — confirmou `healthy` em ~24s, sem intervenção manual além do comando em si.
+Conclusão: mecanismo de rollback validado com uso real, atende RN-07 e ao item do checklist
+"procedimento de rollback testado manualmente ao menos uma vez antes da entrega".
 
 ---
 
@@ -205,10 +284,10 @@ Pode ser formalizado como `workflow_dispatch` manual no GitHub Actions recebendo
 - [ ] Repositório ECR criado para `lacrei-api`
 - [ ] Instância EC2 provisionada com Docker e Docker Compose instalados
 - [ ] Security Group liberando apenas 22 (IP restrito), 80 e 443
-- [ ] `.env.staging` e `.env.production` criados diretamente na instância (nunca versionados)
+- [ ] `.env` criado diretamente na instância, um por diretório (`staging/`, `producao/`) (nunca versionados)
 - [ ] Nginx configurado com dois `server blocks`, um por ambiente/subdomínio
 - [ ] Certbot configurado para emissão e renovação automática de certificado em ambos os domínios
 - [ ] Bancos de staging e produção em volumes Docker separados
 - [ ] Deploy usa tag de imagem específica (`github.sha`), nunca `latest`
 - [ ] Healthcheck (`/health/`) validado após cada deploy antes de considerar sucesso
-- [ ] Procedimento de rollback testado manualmente ao menos uma vez antes da entrega
+- [x] Procedimento de rollback testado manualmente ao menos uma vez antes da entrega

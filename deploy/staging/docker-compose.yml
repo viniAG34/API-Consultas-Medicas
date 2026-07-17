@@ -1,0 +1,40 @@
+# Referência real do que roda em /opt/lacrei/staging na instância EC2 (SDD-07).
+# Cópia sincronizada manualmente — não é lida pelo pipeline de CI/CD (que só
+# atua sobre o arquivo já existente na instância). Ver docs/SDD-07-DEPLOY-AWS.md,
+# seção "Correções pós-implementação", para o histórico dos bugs corrigidos aqui.
+
+services:
+  web:
+    image: ${ECR_REGISTRY}/lacrei-api:${IMAGE_TAG}
+    depends_on:
+      - db
+    env_file: .env
+    environment:
+      # O .env deste diretório só tem POSTGRES_* (não tem DATABASE_URL como
+      # chave) — precisa ser sintetizada aqui, senão o Django não conecta ao
+      # banco (bug real de produção, ver SDD-07).
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+    restart: always
+    ports:
+      - "8001:8000"
+    healthcheck:
+      # curl não existe na imagem de runtime (estágio final enxuto do
+      # Dockerfile) — Python sempre existe, então o healthcheck usa urllib.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_staging:/var/lib/postgresql/data
+
+volumes:
+  postgres_data_staging:

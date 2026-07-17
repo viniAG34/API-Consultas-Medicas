@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",  # obrigatório para o Whitenoise (RN-09) funcionar
     "rest_framework",
     "corsheaders",
+    "drf_spectacular",
     "apps.core",
     "apps.profissionais",
     "apps.consultas",
@@ -123,6 +124,15 @@ REST_FRAMEWORK = {
         "user": TAXA_THROTTLE_USUARIO,
         "login": TAXA_THROTTLE_LOGIN,
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# SDD-08 — documentação interativa da API (Swagger/Redoc), bônus
+SPECTACULAR_SETTINGS = {
+    "TITLE": "API de Gerenciamento de Consultas Médicas — Lacrei Saúde",
+    "DESCRIPTION": "API RESTful para cadastro de profissionais da saúde e gerenciamento de consultas.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 SIMPLE_JWT = {

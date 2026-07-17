@@ -24,3 +24,5 @@ db.sqlite3
 Thumbs.db
 
 .claude/
+
+*;[A-Z]
