@@ -1,0 +1,129 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar Poetry
+        run: pipx install poetry
+      - name: Instalar dependências
+        run: poetry install --no-interaction --no-root
+      - name: Rodar lint
+        run: |
+          poetry run ruff check .
+          poetry run black --check .
+
+  testes:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lacrei_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar Poetry
+        run: pipx install poetry
+      - name: Instalar dependências
+        run: poetry install --no-interaction --no-root
+      - name: Rodar testes
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.development
+          SECRET_KEY: chave-de-teste-apenas-para-ci
+          # DATABASE_URL é a única variável que o Django lê (ver SDD-01) — os
+          # valores abaixo precisam bater com os do service container postgres acima
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lacrei_test
+        run: poetry run python manage.py test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: testes
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Login no Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build e push da imagem
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/lacrei-api:${{ github.sha }}
+      - name: Build sem push (validação em PR)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: lacrei-api:pr-${{ github.event.pull_request.number }}
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    environment: staging
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /opt/lacrei/staging
+            export IMAGE_TAG=${{ github.sha }}
+            export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
+            docker compose pull web
+            docker compose up -d --no-deps web
+            curl -f http://localhost:8000/health/ || (echo "Healthcheck falhou" && exit 1)
+
+  deploy-producao:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push'
+    environment: producao   # GitHub Environment com required reviewers configurado
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /opt/lacrei/producao
+            export IMAGE_TAG=${{ github.sha }}
+            export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
+            docker compose pull web
+            docker compose up -d --no-deps web
+            curl -f http://localhost:8000/health/ || (echo "Healthcheck falhou" && exit 1)

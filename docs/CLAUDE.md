@@ -121,14 +121,12 @@ except Exception as e:
 ## 4. Etapa atual
 
 ```
-STATUS:    FASE 5 (SDD-05) CONCLUÍDA — suíte de testes automatizados completa,
-           40 testes, 0 falhas, 0 erros, 0 pulados (2026-07-14). CORREÇÕES DE
-           PENTE-FINO aplicadas em cima do relatório de auditoria da sessão
-           anterior (2026-07-15/16) — ver ETAPA abaixo. Sessão seguinte
-           (2026-07-16) fechou os dois pontos pendentes dessa auditoria
-           (docker-entrypoint.sh + QA-01 passo 10) — ver ETAPA abaixo. Suíte
-           segue em 40/40 (confirmado via container efêmero com bind mount,
-           não houve mudança de teste nesta sessão).
+STATUS:    FASE 6 (SDD-06) CONCLUÍDA — pipeline CI/CD escrito e validado
+           localmente (2026-07-16). Suíte segue em 40/40 (confirmado via
+           service container Postgres equivalente ao do Actions, ver ETAPA
+           abaixo). Fases 1-5 concluídas anteriormente; correções de
+           pente-fino e QA-01 fechados em sessões anteriores — ver histórico
+           abaixo.
 ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
            consolidando a sessão de 2026-07-15/16 e o fechamento de
            2026-07-16: (1) .dockerignore criado na raiz (.env, .env.*, .git,
@@ -194,13 +192,41 @@ ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
            `MSYS_NO_PATHCONV=1` na sessão de verificação; quem rodar este
            comando em Git Bash no Windows deve fazer o mesmo. Não afeta
            PowerShell nem Linux/Mac.
+           ETAPA — FASE 6 (2026-07-16): `.github/workflows/ci-cd.yml` criado com
+           5 jobs em sequência estrita (lint → testes → build → deploy-staging →
+           deploy-producao, via `needs`), disparando em `push`/`pull_request`
+           para `main`. `lint` roda `ruff check .` + `black --check .`. `testes`
+           sobe um service container `postgres:16` (`lacrei_test`) e roda
+           `poetry run python manage.py test`. `build` autentica no ECR via
+           `aws-actions/amazon-ecr-login` e builda/publica a imagem tagueada
+           com `github.sha` (push) ou builda sem publicar (PR, RN-03/CA-02).
+           `deploy-staging`/`deploy-producao` usam `appleboy/ssh-action`
+           (conforme SDD-07, substituindo o placeholder `echo` do SDD-06) —
+           `producao` usa GitHub Environment `producao` com required reviewers
+           pendente de configuração manual no repositório. Nenhum
+           `continue-on-error` em nenhum job (RN-07). Verificação local
+           (2026-07-16, Docker Desktop, sem poder rodar o workflow real por
+           falta de secrets AWS/EC2): (a) YAML validado sintaticamente via
+           `python -c "import yaml; yaml.safe_load(...)"` — 5 jobs carregados
+           sem erro; (b) `ruff check .` (0.6.9) e `black --check .` (24.10.0,
+           versões exatas do poetry.lock) rodados via container `python:3.12-slim`
+           — ambos passam sem violação; (c) `manage.py test` rodado num
+           container efêmero contra um Postgres `lacrei_test` novo (mesmas
+           credenciais/nome do service container do Actions) — 40/40 testes
+           passando. Jobs `build`/`deploy-*` **não puderam ser validados de
+           ponta a ponta** — dependem de secrets AWS/EC2 ainda não cadastrados
+           no GitHub (ver lista abaixo); é esperado que `build` falhe até lá.
 SDDs:      Todos escritos e auditados (01 Setup, 02 Modelagem, 03 CRUD+refinamentos,
            04 Segurança, 05 Testes, 06 CI/CD, 07 Deploy AWS, 08 Swagger, 09 README)
-PRÓXIMA:   Fase 6 — SDD-06 (Pipeline CI/CD): GitHub Actions rodando lint → test →
-           build → deploy em sequência, falhando corretamente se algum step falhar.
-           Os dois pontos pendentes da sessão de pente-fino (entrypoint e QA-01
-           passo 10) estão resolvidos — nenhum bloqueio conhecido restante antes
-           de iniciar o SDD-06.
+PRÓXIMA:   Fase 7 — SDD-07 (Deploy AWS): provisionar a instância EC2, o
+           repositório ECR, Nginx + Certbot, e cadastrar no GitHub os secrets
+           que o pipeline do SDD-06 já espera: `AWS_ACCESS_KEY_ID`,
+           `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `ECR_REGISTRY`, `EC2_HOST`,
+           `EC2_USER`, `EC2_SSH_KEY` — sem eles, os jobs `build` e
+           `deploy-staging`/`deploy-producao` do CI/CD continuam falhando por
+           design (lint/testes já funcionam de ponta a ponta). Configurar
+           também o GitHub Environment `producao` com required reviewers
+           (RN-06 do SDD-06) antes do primeiro deploy real.
 ```
 
 ### Sequência completa de desenvolvimento
@@ -251,9 +277,10 @@ PRÓXIMA:   Fase 6 — SDD-06 (Pipeline CI/CD): GitHub Actions rodando lint → 
 - [x] Cobertura mínima definida atingida (CRUD + erros) — 40 testes, 0 falhas
 - [x] Testes de erro cobrem: dados ausentes, tipo inválido, FK inexistente, exclusão protegida
 
-**Fase 6**
-- [ ] Pipeline roda lint → test → build → deploy em sequência
-- [ ] Pipeline falha corretamente se algum step falhar (não avança silenciosamente)
+**Fase 6 (concluída — ver SDD-06)**
+- [x] Pipeline roda lint → test → build → deploy em sequência (`.github/workflows/ci-cd.yml`, via `needs`)
+- [x] Pipeline falha corretamente se algum step falhar (não avança silenciosamente) — nenhum `continue-on-error`
+- [x] `lint` e `testes` validados localmente e passam de ponta a ponta; `build`/`deploy-*` formalmente prontos, aguardando secrets AWS/EC2 (Fase 7)
 
 **Fase 7**
 - [ ] Ambiente de staging acessível publicamente
