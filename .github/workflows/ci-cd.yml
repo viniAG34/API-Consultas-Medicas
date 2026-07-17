@@ -17,7 +17,7 @@ jobs:
       - name: Instalar Poetry
         run: pipx install poetry
       - name: Instalar dependências
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction
       - name: Rodar lint
         run: |
           poetry run ruff check .
@@ -47,13 +47,11 @@ jobs:
       - name: Instalar Poetry
         run: pipx install poetry
       - name: Instalar dependências
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction
       - name: Rodar testes
         env:
           DJANGO_SETTINGS_MODULE: config.settings.development
           SECRET_KEY: chave-de-teste-apenas-para-ci
-          # DATABASE_URL é a única variável que o Django lê (ver SDD-01) — os
-          # valores abaixo precisam bater com os do service container postgres acima
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/lacrei_test
         run: poetry run python manage.py test
 
@@ -104,14 +102,13 @@ jobs:
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
             docker compose pull web
-            docker compose up -d --no-deps web
-            curl -f http://localhost:8000/health/ || (echo "Healthcheck falhou" && exit 1)
+            docker compose up -d --wait --wait-timeout 60
 
   deploy-producao:
     runs-on: ubuntu-latest
     needs: deploy-staging
     if: github.event_name == 'push'
-    environment: producao   # GitHub Environment com required reviewers configurado
+    environment: producao
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -125,5 +122,4 @@ jobs:
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REGISTRY
             docker compose pull web
-            docker compose up -d --no-deps web
-            curl -f http://localhost:8000/health/ || (echo "Healthcheck falhou" && exit 1)
+            docker compose up -d --wait --wait-timeout 60
