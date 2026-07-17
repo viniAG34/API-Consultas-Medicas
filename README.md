@@ -2,8 +2,8 @@
 
 [![CI/CD](https://github.com/viniAG34/API-Consultas-Medicas/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/viniAG34/API-Consultas-Medicas/actions/workflows/ci-cd.yml)
 
-- **Produção:** https://api-lacrei.vinisolucoes.com
-- **Staging:** https://staging.api-lacrei.vinisolucoes.com
+- **Produção:** https://api-lacrei.vinisolucoes.com/health/
+- **Staging:** https://staging.api-lacrei.vinisolucoes.com/health/
 - **Documentação interativa (Swagger):** https://api-lacrei.vinisolucoes.com/api/docs/
 - **Repositório:** https://github.com/viniAG34/API-Consultas-Medicas
 
