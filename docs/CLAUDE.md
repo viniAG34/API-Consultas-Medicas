@@ -121,18 +121,24 @@ except Exception as e:
 ## 4. Etapa atual
 
 ```
-STATUS:    FASE 7 (SDD-07) CONCLUÍDA E VALIDADA (2026-07-17) — staging e
+STATUS:    TODAS AS FASES (1 A 9, incluindo o bônus SDD-08) CONCLUÍDAS E
+           VALIDADAS (última atualização 2026-07-17) — projeto pronto para
+           entrega/avaliação. FASE 7 (SDD-07) CONCLUÍDA E VALIDADA
+           (2026-07-17) — staging e
            produção healthy, rodando a mesma imagem (f42ab02); rollback
            testado manualmente com sucesso (via SSH, fora desta sessão),
            inclusive reproduzindo uma regressão de propósito para confirmar
            que o healthcheck detecta o problema, com retorno à imagem
            correta em ~24s sem intervenção manual além do comando em si. Ver
-           ETAPA — FASE 7 abaixo. FASE 8 (SDD-08, bônus) CONCLUÍDA
-           LOCALMENTE (2026-07-17) — Swagger/Redoc implementados e
+           ETAPA — FASE 7 abaixo. FASE 8 (SDD-08, bônus) CONCLUÍDA E
+           VALIDADA (2026-07-17) — Swagger/Redoc implementados e
            validados via docker-compose (40/40 testes, ruff/black ok);
-           verificação em produção/staging pendente do próximo deploy real
-           (fora desta sessão). Ver ETAPA — FASE 8 abaixo. Fases 1-6
-           concluídas anteriormente; correções de pente-fino e QA-01
+           verificação em produção/staging concluída na sessão do SDD-09
+           (200 em `/api/schema/`, `/api/docs/`, `/api/redoc/` nos dois
+           domínios reais). Ver ETAPA — FASE 8 abaixo. FASE 9 (SDD-09)
+           CONCLUÍDA (2026-07-17) — `README.md` criado na raiz com todo
+           comando testado nesta sessão. Ver ETAPA — FASE 9 abaixo. Fases
+           1-6 concluídas anteriormente; correções de pente-fino e QA-01
            fechados em sessões anteriores — ver histórico abaixo.
 ETAPA:     Sessão de correções de pente-fino (não é uma fase nova do SDD),
            consolidando a sessão de 2026-07-15/16 e o fechamento de
@@ -299,13 +305,40 @@ ETAPA — FASE 8 (SDD-08, 2026-07-17): documentação interativa da API via
            pipeline CI/CD, fora desta sessão); pendente verificar
            `GET /api/schema/`, `/api/docs/`, `/api/redoc/` (200) nos domínios
            reais assim que o deploy for confirmado.
-PRÓXIMA:   Fase 9 — SDD-09 (README e Rollback): README completo cobrindo
-           setup local, Docker, testes, deploy (staging/produção),
-           decisões técnicas — incluindo o trade-off documentado no SDD-07
-           (instância única em vez de contas/instâncias separadas) — e a
-           proposta de rollback (SDD-07, RN-07). Já existe uma versão
-           inicial do README; será revisada para incluir os links reais do
-           Swagger (`/api/docs/`, `/api/redoc/`) do SDD-08, agora concluído.
+ETAPA — FASE 9 (SDD-09, 2026-07-17): `README.md` criado na raiz (não existia antes desta
+           sessão), consolidando setup local, Docker, variáveis de ambiente, endpoints,
+           autenticação, testes, CI/CD, deploy, rollback, decisões técnicas, limitações
+           conhecidas, metodologia SDD e estrutura do repositório. Todo comando documentado
+           foi executado nesta sessão antes de entrar no README, contra containers reais
+           (Docker Desktop) e contra produção/staging reais: `docker compose up -d --build`
+           (boot limpo, sem Traceback); `GET /health/`, `/api/docs/`, `/api/schema/`,
+           `/api/redoc/` → 200 localmente; token JWT obtido localmente e usado para confirmar
+           401 sem token / 200 com token em `/api/profissionais/`; suíte completa via bind
+           mount efêmero (`docker compose run --rm -v "$(pwd)/tests:/app/tests" web python
+           manage.py test`) — 40/40 testes; os 4 comandos por categoria do SDD-05
+           (`tests.profissionais tests.consultas`, `tests.integracao`, `tests.regressao`,
+           `tests.contrato`) rodados individualmente — 19+2+2+4 = 27 testes, todos OK;
+           `poetry install` + `python manage.py check`/`migrate` validados via container
+           `python:3.12-slim` efêmero conectado à rede do Compose (sem instalar Poetry na
+           máquina host, por instrução explícita do usuário nesta sessão) — valida a seção
+           "Setup local (sem Docker)" sem exigir Poetry local; `GET /health/`, `/api/docs/`,
+           `/api/schema/`, `/api/redoc/` → 200 contra produção e staging reais; `POST
+           /api/token/` contra produção com credenciais inválidas → `401` com
+           `{"detail": "No active account found with the given credentials"}`, confirmando
+           formato e que o endpoint é público (não testado com login real — usuário optou
+           por validar apenas a estrutura do comando, não obter um token de produção real
+           nesta sessão). Nenhuma seção do README diverge da realidade verificada: caminho de
+           `docs/AWS-HARDENING.md` corrigido para o real (estrutura flat, sem `decisoes/`,
+           conforme já registrado na seção 6 deste arquivo); README não referencia
+           `docs/specs/` nem `AUDITORIA-SDD-01-A-09.md` (mencionados em versões antigas do
+           SDD-09/docs-visao-geral.md mas nunca criados) — a auditoria de consistência entre
+           SDDs é descrita em prosa na seção de metodologia, sem linkar um arquivo inexistente.
+PRÓXIMA:   Nenhuma — todas as fases (1 a 9, incluindo o bônus SDD-08) estão concluídas,
+           implementadas, testadas e documentadas. Projeto pronto para entrega/avaliação.
+           Único item formalmente pendente (não bloqueante): verificação de
+           `/api/schema/`, `/api/docs/`, `/api/redoc/` em produção/staging após o deploy do
+           SDD-08 — já confirmado nesta sessão (ver ETAPA — FASE 9 acima), então também
+           deixa de ser pendência.
 ```
 
 ### Sequência completa de desenvolvimento
@@ -366,15 +399,15 @@ PRÓXIMA:   Fase 9 — SDD-09 (README e Rollback): README completo cobrindo
 - [x] Ambiente de produção acessível publicamente
 - [x] Rollback documentado e testado ao menos uma vez (SDD-07, RN-07 — testado manualmente via SSH em 2026-07-17, healthcheck confirmado detectando regressão e recuperando em ~24s)
 
-**Fase 8 (concluída — ver SDD-08)**
+**Fase 8 (concluída e validada — ver SDD-08)**
 - [x] `/api/schema/`, `/api/docs/`, `/api/redoc/` acessíveis com `AllowAny` explícito, testado localmente (200 nos três)
 - [x] `help_text` de `email`/`telefone` presente no schema (RN-06)
 - [x] 40/40 testes, ruff e black sem violação após a mudança
-- [ ] Verificação em produção/staging — pendente, depende do deploy real (fora desta sessão)
+- [x] Verificação em produção/staging — confirmado na sessão do SDD-09 (2026-07-17): 200 nos três em ambos os domínios reais
 
-**Fase 9**
-- [ ] README cobre setup local, Docker, testes, deploy, decisões técnicas e rollback
-- [ ] Seção sobre uso de IA/metodologia SDD incluída (conforme decidido)
+**Fase 9 (concluída — ver SDD-09)**
+- [x] README cobre setup local, Docker, testes, deploy, decisões técnicas e rollback
+- [x] Seção sobre uso de IA/metodologia SDD incluída (conforme decidido)
 
 ---
 
